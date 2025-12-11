@@ -11,10 +11,10 @@
 #ifndef SUNRISE_TIMER_H_INCLUDED
 #define SUNRISE_TIMER_H_INCLUDED
 
-#include <cstdint>
+#include <stdint.h>
 
 #ifndef ARDUINO
-# include <ctime>
+# include <time.h>
 #else
 typedef uint32_t time_t;
 typedef struct tm {

@@ -40,7 +40,7 @@ static const uint8_t monthDays[] = {
 };
 
 #ifndef ARDUINO
-# include <cmath>
+# include <math.h>
 #else
 struct tm* gmtime_r(const time_t* timeInput, struct tm* tm) {
   // Based on https://github.com/PaulStoffregen/Time/blob/master/Time.cpp
