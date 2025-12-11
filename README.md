@@ -55,7 +55,8 @@ device to sleep until the sunrise/sunset transition point.
 
 ## Example Sketch
 
-For a fully-feature example sketch, see <examples/Demo/Demo.ino>.
+For a fully-feature example sketch, see
+[examples/Demo/Demo.ino](examples/Demo/Demo.ino).
 
 You can also run `make` on Linux to build locally with GCC.
 
