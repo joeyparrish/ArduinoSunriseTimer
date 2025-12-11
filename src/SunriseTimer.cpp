@@ -11,7 +11,7 @@
 #include <SunriseTimer.h>
 #include <math.h>
 
-static constexpr float PI {3.141593};
+static constexpr float pi {3.141593};
 static constexpr uint32_t SECONDS_PER_DAY {86400};
 static constexpr uint32_t SECONDS_PER_HOUR {3600};
 static constexpr uint32_t SECONDS_PER_MINUTE {60};
@@ -336,9 +336,9 @@ float SunriseTimer::AdjustTo360(float i) {
 }
 
 float SunriseTimer::deg2rad(float degrees) {
-  return degrees * PI / 180.0;
+  return degrees * pi / 180.0;
 }
 
 float SunriseTimer::rad2deg(float radians) {
-  return radians / (PI / 180.0);
+  return radians / (pi / 180.0);
 }
