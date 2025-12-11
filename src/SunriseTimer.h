@@ -18,13 +18,13 @@
 #else
 typedef uint32_t time_t;
 typedef struct tm {
-  uint8_t tm_sec;  // 0 to 59
-  uint8_t tm_min;  // 0 to 59
-  uint8_t tm_hour; // 0 to 23
-  uint8_t tm_mday; // 1 to 31
-  uint8_t tm_mon;  // 0 to 11
-  uint8_t tm_year; // years since 1900
-  uint8_t tm_yday; // 0 to 365
+  int8_t tm_sec;  // 0 to 59
+  int8_t tm_min;  // 0 to 59
+  int8_t tm_hour; // 0 to 23
+  int8_t tm_mday; // 1 to 31
+  int8_t tm_mon;  // 0 to 11
+  int16_t tm_year; // years since 1900
+  int16_t tm_yday; // 0 to 365
 };
 
 struct tm* gmtime_r(const time_t* timeInput, struct tm* tm);
@@ -36,7 +36,9 @@ public:
   SunriseTimer(float lat, float lon, float zenith)
       : m_lat{lat}, m_lon{lon}, m_zenith{zenith} {}
 
-  void calculate(time_t t, bool& isUp, int32_t& secondsUntilTransition);
+  void calculate(time_t time, bool* isUp,
+                 int32_t* secondsSinceLastTransition,
+                 int32_t* secondsUntilNextTransition);
 
   static constexpr float
       officialZenith {90.83333},
@@ -49,10 +51,10 @@ private:
   float m_lon;
   float m_zenith;
 
-  bool calcSunset(int doy, bool sunset, uint8_t& hourOut, uint8_t& minutesOut);
+  bool calcSunset(const struct tm* tmIn, int offsetDays, bool sunset, struct tm* tmOut);
+  bool calcSunsetPrimitive(int doy, bool sunset, int8_t& hourOut, int8_t& minutesOut);
 
   float AdjustTo360(float i);
-  float AdjustTo24(float i);
   float deg2rad(float degrees);
   float rad2deg(float radians);
 };

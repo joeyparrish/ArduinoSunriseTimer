@@ -15,9 +15,6 @@ static constexpr uint32_t SECONDS_PER_DAY {86400};
 static constexpr uint32_t SECONDS_PER_HOUR {3600};
 static constexpr uint32_t SECONDS_PER_MINUTE {60};
 
-#ifndef ARDUINO
-# include <cmath>
-#else
 // Input years are offset from 1970
 #define FULL_YEAR(Y) (1970 + (Y))
 #define IS_POSITIVE(Y) (FULL_YEAR(Y) > 0)
@@ -25,6 +22,7 @@ static constexpr uint32_t SECONDS_PER_MINUTE {60};
 #define MULTIPLE_OF_100(Y) ((FULL_YEAR(Y) % 100) == 0)
 #define MULTIPLE_OF_400(Y) ((FULL_YEAR(Y) % 400) == 0)
 #define LEAP_YEAR(Y) (IS_POSITIVE(Y) && MULTIPLE_OF_4(Y) && (!MULTIPLE_OF_100(Y) || MULTIPLE_OF_400(Y)))
+#define LEAP_YEAR_TM(TM) (LEAP_YEAR((TM)->tm_year - 70))
 
 static const uint8_t monthDays[] = {
   31, // Jan
@@ -41,6 +39,9 @@ static const uint8_t monthDays[] = {
   31, // Dec
 };
 
+#ifndef ARDUINO
+# include <cmath>
+#else
 struct tm* gmtime_r(const time_t* timeInput, struct tm* tm) {
   // Based on https://github.com/PaulStoffregen/Time/blob/master/Time.cpp
   // Originally Copyright (c) Michael Margolis 2009-2014
@@ -121,57 +122,84 @@ time_t timegm(struct tm *tm) {
 }
 #endif
 
+static int32_t normalizeSecondsInDay(int32_t seconds) {
+  if (seconds < 0) {
+    seconds += 86400;
+  } else if (seconds >= 86400) {
+    seconds -= 86400;
+  }
+  return seconds;
+}
+
 // Calculate whether or not the sun is up, and how long until the next
 // transition (sunrise or sunset).
 void SunriseTimer::calculate(
-    time_t t, bool& isUp, int32_t& secondsUntilTransition) {
-  uint8_t transitionHour, transitionMinute;
-  uint16_t transitionTimeOfDay;
-  uint16_t inputTimeOfDay;
+    time_t time, bool* isUp,
+    int32_t* secondsSinceLastTransition,
+    int32_t* secondsUntilNextTransition) {
+  uint16_t timeOfDayInput, timeOfDayTransition;
+  struct tm tmInput, tmTransition;
 
-  struct tm tm;
-  gmtime_r(&t, &tm);
-
-  inputTimeOfDay = tm.tm_hour * 60 + tm.tm_min;
+  gmtime_r(&time, &tmInput);
+  timeOfDayInput = tmInput.tm_hour * 60 + tmInput.tm_min;
 
   // Check sunrise for this day of the year.
-  calcSunset(tm.tm_yday, false, transitionHour, transitionMinute);
-  transitionTimeOfDay = transitionHour * 60 + transitionMinute;
+  // TODO: Handle edge case where this returns false.
+  calcSunset(&tmInput, /* offsetDays= */ 0, /* sunset= */ false, &tmTransition);
+  timeOfDayTransition = tmTransition.tm_hour * 60 + tmTransition.tm_min;
 
-  if (transitionTimeOfDay > inputTimeOfDay) {
+  if (timeOfDayTransition > timeOfDayInput) {
     // Waiting on sunrise.
-    isUp = false;
+    if (isUp) *isUp = false;
 
-    tm.tm_hour = transitionHour;
-    tm.tm_min = transitionMinute;
-    tm.tm_sec = 0;
+    time_t nextTransition = timegm(&tmTransition);
+    if (secondsUntilNextTransition) {
+      *secondsUntilNextTransition =
+          normalizeSecondsInDay(nextTransition - time);
+    }
 
-    time_t transition = timegm(&tm);
-    secondsUntilTransition = transition - t;
+    if (secondsSinceLastTransition) {
+      // Also compute yesterday's sunset.
+      calcSunset(
+          &tmInput, /* offsetDays= */ -1, /* sunset= */ true, &tmTransition);
+
+      time_t lastTransition = timegm(&tmTransition);
+      *secondsSinceLastTransition =
+          normalizeSecondsInDay(time - lastTransition);
+    }
     return;
   }
 
   // Waiting on sunset.
-  isUp = true;
-
-  // Check sunset for this day of the year.
-  calcSunset(tm.tm_yday, true, transitionHour, transitionMinute);
-  transitionTimeOfDay = transitionHour * 60 + transitionMinute;
-
-  tm.tm_hour = transitionHour;
-  tm.tm_min = transitionMinute;
-  tm.tm_sec = 0;
-
-  if (transitionTimeOfDay < inputTimeOfDay) {
-    // This time of day takes place in the next UTC day.
-    // tm_yday is used in the Arduino impl above, while mday is used in the c
-    // standard library.  Adjust both.
-    tm.tm_yday++;
-    tm.tm_mday++;
+  if (isUp) *isUp = true;
+  if (secondsSinceLastTransition) {
+    time_t lastTransition = timegm(&tmTransition);
+    *secondsSinceLastTransition = normalizeSecondsInDay(time - lastTransition);
   }
 
-  time_t transition = timegm(&tm);
-  secondsUntilTransition = transition - t;
+  // Check sunset for this day of the year.
+  // TODO: Handle edge case where this returns false.
+  calcSunset(&tmInput, /* offsetDays= */ 0, /* sunset= */ true, &tmTransition);
+
+  time_t nextTransition = timegm(&tmTransition);
+  if (secondsUntilNextTransition) {
+    *secondsUntilNextTransition = normalizeSecondsInDay(nextTransition - time);
+  }
+}
+
+bool SunriseTimer::calcSunset(
+    const struct tm* tmIn, int offsetDays, bool sunset, struct tm* tmOut) {
+  int8_t hourOut, minuteOut;
+
+  if (calcSunsetPrimitive(
+      tmIn->tm_yday + offsetDays, sunset, hourOut, minuteOut)) {
+    *tmOut = *tmIn;
+    tmOut->tm_hour = hourOut;
+    tmOut->tm_min = minuteOut;
+    tmOut->tm_sec = 0;
+  }
+
+  return false;
 }
 
 /*----------------------------------------------------------------------*
@@ -205,7 +233,7 @@ void SunriseTimer::calculate(
  *    to extreme latitudes (sun never rises, never sets on given day).  *
  *----------------------------------------------------------------------*/
 
-// Function name: calcSunset
+// Function name: calcSunsetPrimitive
 // Parameters:
 // doy: The day of the year to calculate sunset/rise for
 // lat: The latitude of the location to calculate sunset/rise for
@@ -221,9 +249,13 @@ void SunriseTimer::calculate(
 // Note: longitude is positive for East and negative for West
 //       latitude is positive for North and negative for south
 
-bool SunriseTimer::calcSunset(
-    int doy, bool sunset, uint8_t& hourOut, uint8_t& minutesOut) {
+bool SunriseTimer::calcSunsetPrimitive(
+    int doy, bool sunset, int8_t& hourOut, int8_t& minutesOut) {
   hourOut = minutesOut = 0;
+
+  if (doy < 0) {
+    doy += 365;
+  }
 
   // Convert the longitude to hour value and calculate an approximate time.
   float lonhour = (m_lon / 15);
@@ -285,7 +317,7 @@ bool SunriseTimer::calcSunset(
   t = h + ra - (0.06571 * t) - 6.622;
 
   // Adjust back to UTC
-  float ut = AdjustTo24(t - lonhour);
+  float ut = t - lonhour;
 
   hourOut = floor(ut);
   // rounded above, so letting the float-to-int assignment truncate is OK -- jc
@@ -300,15 +332,6 @@ float SunriseTimer::AdjustTo360(float i) {
     i -= 360.0;
   } else if (i < 0.0) {
     i += 360.0;
-  }
-  return i;
-}
-
-float SunriseTimer::AdjustTo24(float i) {
-  if (i > 24.0) {
-    i -= 24.0;
-  } else if (i < 0.0) {
-    i += 24.0;
   }
   return i;
 }

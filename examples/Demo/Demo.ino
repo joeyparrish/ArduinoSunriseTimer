@@ -23,34 +23,39 @@ SunriseTimer location(34.0522, -118.2437, zenith);
 
 void testTime(time_t now) {
   bool isUp;
-  int32_t secondsUntilTransition;
-  location.calculate(now, isUp, secondsUntilTransition);
+  int32_t secondsSinceLastTransition, secondsUntilNextTransition;
+  location.calculate(now, &isUp,
+      &secondsSinceLastTransition, &secondsUntilNextTransition);
 
   // Now you know the state (isUp) and how many seconds until the next
-  // transition (secondsUntilTransition).
+  // transition (secondsUntilNextTransition).
 
   // Everything below here is printing and formatting for inspection.
   // You should get the same results on your PC as on the Arduino.
 
-  time_t nextTransition = now + secondsUntilTransition;
+  time_t lastTransition = now - secondsSinceLastTransition;
+  time_t nextTransition = now + secondsUntilNextTransition;
 
-  struct tm tm_now;
-  gmtime_r(&now, &tm_now);
+  struct tm tmNow;
+  gmtime_r(&now, &tmNow);
 
-  struct tm tm_transition;
-  gmtime_r(&nextTransition, &tm_transition);
+  struct tm tmLast;
+  gmtime_r(&lastTransition, &tmLast);
+
+  struct tm tmNext;
+  gmtime_r(&nextTransition, &tmNext);
 
 #ifdef ARDUINO
   Serial.print("Input time is ");
-  Serial.print(tm_now.tm_hour);
+  Serial.print(tmNow.tm_hour);
   Serial.print(":");
-  Serial.print(tm_now.tm_min);
+  Serial.print(tmNow.tm_min);
   Serial.print(" (@");
   Serial.print(now);
   Serial.println(")");
 #else
   printf("Input time is %02d:%02d (@%ld)\n",
-      tm_now.tm_hour, tm_now.tm_min, (long)now);
+      tmNow.tm_hour, tmNow.tm_min, (long)now);
 #endif
 
 #ifdef ARDUINO
@@ -61,20 +66,36 @@ void testTime(time_t now) {
 #endif
 
 #ifdef ARDUINO
-  Serial.print("Transition time is ");
-  Serial.print(tm_transition.tm_hour);
+  Serial.print("Last transition time was ");
+  Serial.print(tmLast.tm_hour);
   Serial.print(":");
-  Serial.print(tm_transition.tm_min);
+  Serial.print(tmLast.tm_min);
+  Serial.print(" (@");
+  Serial.print(lastTransition);
+  Serial.print("), ");
+  Serial.print(secondsSinceLastTransition);
+  Serial.println("seconds ago.");
+#else
+  printf("Last transition time was %02d:%02d (@%ld), %ld seconds ago.\n",
+      tmLast.tm_hour, tmLast.tm_min, (long)lastTransition,
+      (long)secondsSinceLastTransition);
+#endif
+
+#ifdef ARDUINO
+  Serial.print("Next transition time is ");
+  Serial.print(tmNext.tm_hour);
+  Serial.print(":");
+  Serial.print(tmNext.tm_min);
   Serial.print(" (@");
   Serial.print(nextTransition);
   Serial.print("), in ");
-  Serial.print(secondsUntilTransition);
+  Serial.print(secondsUntilNextTransition);
   Serial.println("seconds.");
   Serial.println("");
 #else
   printf("Transition time is %02d:%02d (@%ld), in %ld seconds.\n\n",
-      tm_transition.tm_hour, tm_transition.tm_min, (long)nextTransition,
-      (long)secondsUntilTransition);
+      tmNext.tm_hour, tmNext.tm_min, (long)nextTransition,
+      (long)secondsUntilNextTransition);
 #endif
 }
 
@@ -83,9 +104,18 @@ void setup() {
   Serial.begin(9600);
 #endif
 
-  testTime(1765432728);  // 5:58
-  testTime(1765462861);  // 14:21, right after next sunrise
-  testTime(1765501921);  // 1:12, right after next sunset
+  // Edge cases around New Year's
+  testTime(1735610400);  // 2024-12-31 02:00:00 UTC
+  testTime(1735686000);  // 2024-12-31 23:00:00 UTC
+  testTime(1735696800);  // 2025-01-01 02:00:00 UTC
+  testTime(1735783200);  // 2025-01-02 02:00:00 UTC
+
+  // A sequence of sunrise/sunset events
+  testTime(1765454400);  // 2025-12-11 12:00:00 UTC, 4AM US/PST, before sunrise
+  testTime(1765490400);  // 2025-12-11 22:00:00 UTC, 2PM US/PST, daytime
+  testTime(1765512000);  // 2025-12-12 04:00:00 UTC, 8PM US/PST, after sunset
+  testTime(1765548000);  // 2025-12-12 14:00:00 UTC, 6AM US/PST, before next sunrise
+  testTime(1765555200);  // 2025-12-12 16:00:00 UTC, 8AM US/PST, after next sunrise
 }
 
 #ifdef ARDUINO
