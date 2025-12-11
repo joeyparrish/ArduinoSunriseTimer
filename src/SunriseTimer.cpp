@@ -200,7 +200,9 @@ void SunriseTimer::calculate(
  * Modified 11Dec2025 by Joey Parrish                                   *
  *  - Combined with fork of TimeLib, adjusted to use struct tm for      *
  *    compatibility with the C standard library time.h routines,        *
- *    removed UTC offset                                                *
+ *    removed UTC offset.                                               *
+ *  - Changed return to bool, with false to indicate lack of output due *
+ *    to extreme latitudes (sun never rises, never sets on given day).  *
  *----------------------------------------------------------------------*/
 
 // Function name: calcSunset
@@ -219,7 +221,7 @@ void SunriseTimer::calculate(
 // Note: longitude is positive for East and negative for West
 //       latitude is positive for North and negative for south
 
-void SunriseTimer::calcSunset(
+bool SunriseTimer::calcSunset(
     int doy, bool sunset, uint8_t& hourOut, uint8_t& minutesOut) {
   hourOut = minutesOut = 0;
 
@@ -264,9 +266,9 @@ void SunriseTimer::calcSunset(
   // if cosH > 1 the sun never rises on this date at this location
   // if cosH < -1 the sun never sets on this date at this location
   if (cosh > 1) {
-    return;
+    return false;
   } else if (cosh < -1) {
-    return;
+    return false;
   }
 
   // Finish calculating H and convert into hours
@@ -289,6 +291,8 @@ void SunriseTimer::calcSunset(
   // rounded above, so letting the float-to-int assignment truncate is OK -- jc
   // was: minutesOut = round(60 * (ut - hour));
   minutesOut = 60.0 * (ut - hourOut);
+
+  return true;
 }
 
 float SunriseTimer::AdjustTo360(float i) {

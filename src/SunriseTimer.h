@@ -49,7 +49,7 @@ private:
   float m_lon;
   float m_zenith;
 
-  void calcSunset(int doy, bool sunset, uint8_t& hourOut, uint8_t& minutesOut);
+  bool calcSunset(int doy, bool sunset, uint8_t& hourOut, uint8_t& minutesOut);
 
   float AdjustTo360(float i);
   float AdjustTo24(float i);
