@@ -1,47 +1,177 @@
-// Arduino Sunrise Library
-// https://github.com/JChristensen/JC_Sunrise
-// Copyright (C) 2021 by Jack Christensen and licensed under
+// Arduino Sunrise Timer Library
+// https://github.com/joeyparrish/ArduinoSunriseTimer
+// Copyright (C) 2025 by Joey Parrish and licensed under
 // GNU GPL v3.0, https://www.gnu.org/licenses/gpl.html
 //
-// Arduino library to calculate sunrise and sunset times.
+// Based on https://github.com/JChristensen/JC_Sunrise by Jack Christensen
+//
+// Arduino library to calculate whether or not the sun is up, and the time
+// until the next transition (sunrise or sunset), with optional offsets.
 
 #include <JC_Sunrise.h>
 
-// calculate sunrise and sunset as single integers, i.e. hhmm,
-// given epoch time and utcOffset in minutes.
-void JC_Sunrise::calculate(time_t t, int utcOffset,
-                           int& sunriseOut, int& sunsetOut)
-{
-    uint8_t hour, minute;
-    int ord = ordinalDate(t);
-    float fOffset = utcOffset / 60.0;
-    calcSunset(ord, false, fOffset, hour, minute);
-    sunriseOut = 100 * hour + minute;
-    calcSunset(ord, true,  fOffset, hour, minute);
-    sunsetOut  = 100 * hour + minute;
+static constexpr float PI {3.141593};
+static constexpr uint32_t SECONDS_PER_DAY {86400};
+static constexpr uint32_t SECONDS_PER_HOUR {3600};
+static constexpr uint32_t SECONDS_PER_MINUTE {60};
+
+#ifndef ARDUINO
+# include <cmath>
+#else
+// Input years are offset from 1970
+#define FULL_YEAR(Y) (1970 + (Y))
+#define IS_POSITIVE(Y) (FULL_YEAR(Y) > 0)
+#define MULTIPLE_OF_4(Y) ((FULL_YEAR(Y) % 4) == 0)
+#define MULTIPLE_OF_100(Y) ((FULL_YEAR(Y) % 100) == 0)
+#define MULTIPLE_OF_400(Y) ((FULL_YEAR(Y) % 400) == 0)
+#define LEAP_YEAR(Y) (IS_POSITIVE(Y) && MULTIPLE_OF_4(Y) && (!MULTIPLE_OF_100(Y) || MULTIPLE_OF_400(Y)))
+
+static const uint8_t monthDays[] = {
+  31, // Jan
+  28, // Feb
+  31, // Mar
+  30, // Apr
+  31, // May
+  30, // Jun
+  31, // Jul
+  31, // Aug
+  30, // Sep
+  31, // Oct
+  30, // Nov
+  31, // Dec
+};
+
+struct tm* gmtime_r(const time_t* timeInput, struct tm* tm) {
+  // Based on https://github.com/PaulStoffregen/Time/blob/master/Time.cpp
+  // Originally Copyright (c) Michael Margolis 2009-2014
+  // Licensed under GNU LGPL v2.1+
+  // Modified to match gmtime_r for simplified testing and validation
+  // between PC & Arduino.
+  uint8_t year;
+  uint8_t month, monthLength;
+  uint32_t time;
+  uint32_t days;
+
+  time = (uint32_t)*timeInput;
+  tm->tm_sec = time % 60;
+  time /= 60; // now it is minutes
+  tm->tm_min = time % 60;
+  time /= 60; // now it is hours
+  tm->tm_hour = time % 24;
+  time /= 24; // now it is days
+
+  year = 0;
+  days = 0;
+  while((unsigned)(days += (LEAP_YEAR(year) ? 366 : 365)) <= time) {
+    year++;
+  }
+  tm->tm_year = year + 70; // year is offset from 1970, tm_year from 1900
+
+  days -= LEAP_YEAR(year) ? 366 : 365;
+  time -= days; // now it is days in this year, starting at 0
+  tm->tm_yday = time;  // 0-based
+
+  days = 0;
+  month = 0;
+  monthLength = 0;
+
+  for (month = 0; month < 12; month++) {
+    if (month == 1) { // february
+      if (LEAP_YEAR(year)) {
+        monthLength = 29;
+      } else {
+        monthLength = 28;
+      }
+    } else {
+      monthLength = monthDays[month];
+    }
+
+    if (time >= monthLength) {
+      time -= monthLength;
+    } else {
+        break;
+    }
+  }
+
+  tm->tm_mon = month;  // month is 0-based
+  tm->tm_mday = time + 1;  // day of month is 1-based
+
+  return tm;
 }
 
-// calculate sunrise and sunset as time_t values,
-// given epoch time and utcOffset in minutes.
-void JC_Sunrise::calculate(time_t t, int utcOffset,
-                           time_t& sunriseOut, time_t& sunsetOut)
-{
-    uint8_t hour, minute;
-    tmElements_t tm;
-    breakTime(t, tm);
-    int ord = ordinalDate(t);
-    float fOffset = utcOffset / 60.0;
+// Expects tm->tm_yday to be correct, and ignores tm->tm_mon and tm->mday!
+time_t timegm(struct tm *tm) {
+  time_t time = 0;
+  uint8_t targetYear = tm->tm_year - 70;  // 1900-base to 1970-base
+  uint8_t year = 0;
+  while (year < targetYear) {
+    time += LEAP_YEAR(year) ? 366 : 365;
+  }
+  time += tm->tm_yday;
+  // time is now in days elapsed since 1970
 
-    calcSunset(ord, false, fOffset, hour, minute);
-    tm.Hour = hour;
-    tm.Minute = minute;
-    tm.Second = 0;
-    sunriseOut = makeTime(tm);
+  time *= SECONDS_PER_DAY;
+  // time is now in seconds elapsed since 1970
 
-    calcSunset(ord, true,  fOffset, hour, minute);
-    tm.Hour = hour;
-    tm.Minute = minute;
-    sunsetOut = makeTime(tm);
+  time += tm->tm_hour * SECONDS_PER_HOUR;
+  time += tm->tm_min * SECONDS_PER_MINUTE;
+  time += tm->tm_sec;
+
+  return time;
+}
+#endif
+
+// Calculate whether or not the sun is up, and how long until the next
+// transition (sunrise or sunset).
+void SunriseTimer::calculate(
+    time_t t, bool& isUp, int32_t& secondsUntilTransition) {
+  uint8_t transitionHour, transitionMinute;
+  uint16_t transitionTimeOfDay;
+  uint16_t inputTimeOfDay;
+
+  struct tm tm;
+  gmtime_r(&t, &tm);
+
+  inputTimeOfDay = tm.tm_hour * 60 + tm.tm_min;
+
+  // Check sunrise for this day of the year.
+  calcSunset(tm.tm_yday, false, transitionHour, transitionMinute);
+  transitionTimeOfDay = transitionHour * 60 + transitionMinute;
+
+  if (transitionTimeOfDay > inputTimeOfDay) {
+    // Waiting on sunrise.
+    isUp = false;
+
+    tm.tm_hour = transitionHour;
+    tm.tm_min = transitionMinute;
+    tm.tm_sec = 0;
+
+    time_t transition = timegm(&tm);
+    secondsUntilTransition = transition - t;
+    return;
+  }
+
+  // Waiting on sunset.
+  isUp = true;
+
+  // Check sunset for this day of the year.
+  calcSunset(tm.tm_yday, true, transitionHour, transitionMinute);
+  transitionTimeOfDay = transitionHour * 60 + transitionMinute;
+
+  tm.tm_hour = transitionHour;
+  tm.tm_min = transitionMinute;
+  tm.tm_sec = 0;
+
+  if (transitionTimeOfDay < inputTimeOfDay) {
+    // This time of day takes place in the next UTC day.
+    // tm_yday is used in the Arduino impl above, while mday is used in the c
+    // standard library.  Adjust both.
+    tm.tm_yday++;
+    tm.tm_mday++;
+  }
+
+  time_t transition = timegm(&tm);
+  secondsUntilTransition = transition - t;
 }
 
 /*----------------------------------------------------------------------*
@@ -51,6 +181,7 @@ void JC_Sunrise::calculate(time_t t, int utcOffset,
  * Published by Nautical Almanac Office                                 *
  * Washington, DC 20392                                                 *
  * Implemented by Chris Snyder                                          *
+ *                                                                      *
  * Modified 09Dec2011 by Jack Christensen                               *
  *  - Improved rounding of the returned hour and minute values          *
  *    (e.g. would sometimes return 16h60m rather than 17h0m)            *
@@ -65,6 +196,11 @@ void JC_Sunrise::calculate(time_t t, int utcOffset,
  *    sunset times agreed within one minute. 12 sunrise times were one  *
  *    minute later than the USNO time, and 18 earlier. 19 sunset times  *
  *    were one minute later and 2 were earlier.                         *
+ *                                                                      *
+ * Modified 11Dec2025 by Joey Parrish                                   *
+ *  - Combined with fork of TimeLib, adjusted to use struct tm for      *
+ *    compatibility with the C standard library time.h routines,        *
+ *    removed UTC offset                                                *
  *----------------------------------------------------------------------*/
 
 // Function name: calcSunset
@@ -73,7 +209,6 @@ void JC_Sunrise::calculate(time_t t, int utcOffset,
 // lat: The latitude of the location to calculate sunset/rise for
 // lon: The longitude of the location to calculate sunset/rise for
 // sunset: true to calculate sunset, false to calculate sunrise
-// utcOffset: difference in hours from UTC
 // zenith: Sun's zenith for sunrise/sunset
 //         offical      = 90 degrees 50'  (90.8333)
 //         civil        = 96 degrees
@@ -84,8 +219,8 @@ void JC_Sunrise::calculate(time_t t, int utcOffset,
 // Note: longitude is positive for East and negative for West
 //       latitude is positive for North and negative for south
 
-void JC_Sunrise::calcSunset(int doy, bool sunset, float utcOffset,
-                            uint8_t& hourOut, uint8_t& minutesOut)
+void SunriseTimer::calcSunset(int doy, bool sunset,
+                              uint8_t& hourOut, uint8_t& minutesOut)
 {
     hourOut = minutesOut = 0;
 
@@ -147,10 +282,6 @@ void JC_Sunrise::calcSunset(int doy, bool sunset, float utcOffset,
 
     // Adjust back to UTC
     float ut = AdjustTo24(t - lonhour);
-    // Adjust for current time zone
-    // round up to the next minute by adding 30 seconds (0.00833333 hour) -- jc
-    ut = AdjustTo24(ut + utcOffset) + 0.00833333;
-    // was: ut = AdjustTo24(ut + utcOffset);
 
     hourOut = floor(ut);
     // rounded above, so letting the float-to-int assignment truncate is OK -- jc
@@ -158,32 +289,7 @@ void JC_Sunrise::calcSunset(int doy, bool sunset, float utcOffset,
     minutesOut = 60.0 * (ut - hourOut);
 }
 
-// Leap years are those divisible by 4, but not those divisible by 100,
-// except that those divisible by 400 *are* leap years.
-// See Kernighan & Ritchie, 2nd edition, section 2.5.
-bool JC_Sunrise::isLeap(time_t t)
-{
-    int y = year(t);
-    return (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
-}
-
-// Return ordinal day of year for the given time_t
-int JC_Sunrise::ordinalDate(time_t t)
-{
-    int m = month(t);
-    int d = day(t);
-
-    if (m == 1)
-        return d;
-    else if (m == 2)
-        return d + 31;
-    else {
-        int n = floor(30.6 * (m + 1)) + d - 122;
-        return n + (isLeap(t) ? 60 : 59);
-    }
-}
-
-float JC_Sunrise::AdjustTo360(float i)
+float SunriseTimer::AdjustTo360(float i)
 {
     if (i > 360.0)
         i -= 360.0;
@@ -192,7 +298,7 @@ float JC_Sunrise::AdjustTo360(float i)
     return i;
 }
 
-float JC_Sunrise::AdjustTo24(float i)
+float SunriseTimer::AdjustTo24(float i)
 {
     if (i > 24.0)
         i -= 24.0;
@@ -201,12 +307,12 @@ float JC_Sunrise::AdjustTo24(float i)
     return i;
 }
 
-float JC_Sunrise::deg2rad(float degrees)
+float SunriseTimer::deg2rad(float degrees)
 {
-    return degrees * pi / 180.0;
+    return degrees * PI / 180.0;
 }
 
-float JC_Sunrise::rad2deg(float radians)
+float SunriseTimer::rad2deg(float radians)
 {
-    return radians / (pi / 180.0);
+    return radians / (PI / 180.0);
 }
