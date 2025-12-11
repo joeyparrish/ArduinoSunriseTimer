@@ -219,100 +219,100 @@ void SunriseTimer::calculate(
 // Note: longitude is positive for East and negative for West
 //       latitude is positive for North and negative for south
 
-void SunriseTimer::calcSunset(int doy, bool sunset,
-                              uint8_t& hourOut, uint8_t& minutesOut)
-{
-    hourOut = minutesOut = 0;
+void SunriseTimer::calcSunset(
+    int doy, bool sunset, uint8_t& hourOut, uint8_t& minutesOut) {
+  hourOut = minutesOut = 0;
 
-    // Convert the longitude to hour value and calculate an approximate time.
-    float lonhour = (m_lon / 15);
+  // Convert the longitude to hour value and calculate an approximate time.
+  float lonhour = (m_lon / 15);
 
-    float t;
-    if (sunset)
-        t = doy + ((18 - lonhour) / 24);
-    else
-        t = doy + ((6 - lonhour) / 24);
+  float t;
+  if (sunset) {
+    t = doy + ((18 - lonhour) / 24);
+  } else {
+    t = doy + ((6 - lonhour) / 24);
+  }
 
-    // Calculate the Sun's mean anomaly
-    float m = (0.9856 * t) - 3.289;
+  // Calculate the Sun's mean anomaly
+  float m = (0.9856 * t) - 3.289;
 
-    // Calculate the Sun's true longitude
-    float sinm = sin(deg2rad(m));
-    float sin2m = sin(2 * deg2rad(m));
-    float l= AdjustTo360 (m + (1.916 * sinm) + (0.02 * sin2m) + 282.634);
+  // Calculate the Sun's true longitude
+  float sinm = sin(deg2rad(m));
+  float sin2m = sin(2 * deg2rad(m));
+  float l = AdjustTo360 (m + (1.916 * sinm) + (0.02 * sin2m) + 282.634);
 
-    // Calculate the Sun's right ascension(RA)
-    float tanl = 0.91764 * tan(deg2rad(l));
-    float ra = AdjustTo360 (rad2deg(atan(tanl)));
+  // Calculate the Sun's right ascension(RA)
+  float tanl = 0.91764 * tan(deg2rad(l));
+  float ra = AdjustTo360 (rad2deg(atan(tanl)));
 
-    // Putting the RA value into the same quadrant as L
-    float lq = (floor(l / 90)) * 90;
-    float raq = (floor(ra / 90)) * 90;
-    ra = ra + (lq - raq);
+  // Putting the RA value into the same quadrant as L
+  float lq = (floor(l / 90)) * 90;
+  float raq = (floor(ra / 90)) * 90;
+  ra = ra + (lq - raq);
 
-    // Convert RA values to hours
-    ra /= 15;
+  // Convert RA values to hours
+  ra /= 15;
 
-    // Calculate the Sun's declination
-    float sindec = 0.39782 * sin(deg2rad(l));
-    float cosdec = cos(asin(sindec));
+  // Calculate the Sun's declination
+  float sindec = 0.39782 * sin(deg2rad(l));
+  float cosdec = cos(asin(sindec));
 
-    // Calculate the Sun's local hour angle
-    float cosh = (cos(deg2rad(m_zenith)) - (sindec * sin(deg2rad(m_lat))))
-        / (cosdec * cos(deg2rad(m_lat)));
+  // Calculate the Sun's local hour angle
+  float cosh = (cos(deg2rad(m_zenith)) - (sindec * sin(deg2rad(m_lat))))
+    / (cosdec * cos(deg2rad(m_lat)));
 
-    // if cosH > 1 the sun never rises on this date at this location
-    // if cosH < -1 the sun never sets on this date at this location
-    if (cosh >  1)
-        return;
-    else if (cosh < -1)
-        return;
+  // if cosH > 1 the sun never rises on this date at this location
+  // if cosH < -1 the sun never sets on this date at this location
+  if (cosh > 1) {
+    return;
+  } else if (cosh < -1) {
+    return;
+  }
 
-    // Finish calculating H and convert into hours
-    float h;
-    if (sunset)
-        h = rad2deg(acos(cosh));
-    else
-        h = 360 - rad2deg(acos(cosh));
+  // Finish calculating H and convert into hours
+  float h;
+  if (sunset) {
+    h = rad2deg(acos(cosh));
+  } else {
+    h = 360 - rad2deg(acos(cosh));
+  }
 
-    h /= 15;
+  h /= 15;
 
-    // Calculate local mean time of rising/setting
-    t = h + ra - (0.06571 * t) - 6.622;
+  // Calculate local mean time of rising/setting
+  t = h + ra - (0.06571 * t) - 6.622;
 
-    // Adjust back to UTC
-    float ut = AdjustTo24(t - lonhour);
+  // Adjust back to UTC
+  float ut = AdjustTo24(t - lonhour);
 
-    hourOut = floor(ut);
-    // rounded above, so letting the float-to-int assignment truncate is OK -- jc
-    // was: minutesOut = round(60 * (ut - hour));
-    minutesOut = 60.0 * (ut - hourOut);
+  hourOut = floor(ut);
+  // rounded above, so letting the float-to-int assignment truncate is OK -- jc
+  // was: minutesOut = round(60 * (ut - hour));
+  minutesOut = 60.0 * (ut - hourOut);
 }
 
-float SunriseTimer::AdjustTo360(float i)
-{
-    if (i > 360.0)
-        i -= 360.0;
-    else if (i < 0.0)
-        i += 360.0;
-    return i;
+float SunriseTimer::AdjustTo360(float i) {
+  if (i > 360.0) {
+    i -= 360.0;
+  } else if (i < 0.0) {
+    i += 360.0;
+  }
+  return i;
 }
 
-float SunriseTimer::AdjustTo24(float i)
-{
-    if (i > 24.0)
-        i -= 24.0;
-    else if (i < 0.0)
-        i += 24.0;
-    return i;
+float SunriseTimer::AdjustTo24(float i) {
+  if (i > 24.0) {
+    i -= 24.0;
+  } else if (i < 0.0) {
+    i += 24.0;
+  }
+  return i;
 }
 
-float SunriseTimer::deg2rad(float degrees)
-{
-    return degrees * PI / 180.0;
+float SunriseTimer::deg2rad(float degrees) {
+  return degrees * PI / 180.0;
 }
 
-float SunriseTimer::rad2deg(float radians)
-{
-    return radians / (PI / 180.0);
+float SunriseTimer::rad2deg(float radians) {
+  return radians / (PI / 180.0);
 }
