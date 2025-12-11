@@ -9,6 +9,7 @@
 // until the next transition (sunrise or sunset).
 
 #include <SunriseTimer.h>
+#include <math.h>
 
 static constexpr float PI {3.141593};
 static constexpr uint32_t SECONDS_PER_DAY {86400};
@@ -39,9 +40,7 @@ static const uint8_t monthDays[] = {
   31, // Dec
 };
 
-#ifndef ARDUINO
-# include <math.h>
-#else
+#ifdef ARDUINO
 struct tm* gmtime_r(const time_t* timeInput, struct tm* tm) {
   // Based on https://github.com/PaulStoffregen/Time/blob/master/Time.cpp
   // Originally Copyright (c) Michael Margolis 2009-2014

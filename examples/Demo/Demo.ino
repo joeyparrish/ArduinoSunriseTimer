@@ -18,7 +18,7 @@
 # include <stdio.h>
 #endif
 
-int zenith = SunriseTimer::civilZenith;
+constexpr float zenith = SunriseTimer::civilZenith;
 SunriseTimer location(34.0522, -118.2437, zenith);
 
 void testTime(time_t now) {
@@ -60,7 +60,7 @@ void testTime(time_t now) {
 
 #ifdef ARDUINO
   Serial.print("The sun is ");
-  Serial.println(isUp ? "up!", "down!");
+  Serial.println(isUp ? "up!" : "down!");
 #else
   printf("The sun is %s!\n", isUp ? "up" : "down");
 #endif
