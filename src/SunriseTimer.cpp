@@ -8,7 +8,7 @@
 // Arduino library to calculate whether or not the sun is up, and the time
 // until the next transition (sunrise or sunset), with optional offsets.
 
-#include <JC_Sunrise.h>
+#include <SunriseTimer.h>
 
 static constexpr float PI {3.141593};
 static constexpr uint32_t SECONDS_PER_DAY {86400};

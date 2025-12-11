@@ -9,10 +9,10 @@
 // until the next transition (sunrise or sunset), with optional offsets.
 
 // This example runs on Linux and Arduino.  To compile on Linux, use:
-//   g++ -o demo -x c++ -I src examples/Demo/Demo.ino src/JC_Sunrise.cpp
+//   g++ -o demo -x c++ -I src examples/Demo/Demo.ino src/SunriseTimer.cpp
 //   ./demo
 
-#include <JC_Sunrise.h>
+#include <SunriseTimer.h>
 
 #ifndef ARDUINO
 # include <stdio.h>

@@ -87,7 +87,7 @@ SunriseTimer::astronomicalZenith {108.0}
 #### Example
 
 ```c++
-#include <JC_Sunrise.h>
+#include <SunriseTimer.h>
 
 // ...
 
@@ -112,7 +112,7 @@ transition.
 #### Example
 
 ```c++
-#include <JC_Sunrise.h>
+#include <SunriseTimer.h>
 
 // ...
 

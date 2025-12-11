@@ -3,4 +3,4 @@
 all: demo
 
 demo:
-	g++ -o demo -x c++ -I src examples/Demo/Demo.ino src/JC_Sunrise.cpp
+	g++ -o demo -x c++ -I src examples/Demo/Demo.ino src/SunriseTimer.cpp
