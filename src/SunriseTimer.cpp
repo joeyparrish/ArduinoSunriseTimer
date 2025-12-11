@@ -47,7 +47,7 @@ struct tm* gmtime_r(const time_t* timeInput, struct tm* tm) {
   // Licensed under GNU LGPL v2.1+
   // Modified to match gmtime_r for simplified testing and validation
   // between PC & Arduino.
-  uint8_t year;
+  uint16_t year;
   uint8_t month, monthLength;
   uint32_t time;
   uint32_t days;
@@ -102,10 +102,12 @@ struct tm* gmtime_r(const time_t* timeInput, struct tm* tm) {
 // Expects tm->tm_yday to be correct, and ignores tm->tm_mon and tm->mday!
 time_t timegm(struct tm *tm) {
   time_t time = 0;
-  uint8_t targetYear = tm->tm_year - 70;  // 1900-base to 1970-base
-  uint8_t year = 0;
+  uint16_t targetYear = tm->tm_year - 70;  // 1900-base to 1970-base
+  uint16_t year = 0;
+
   while (year < targetYear) {
     time += LEAP_YEAR(year) ? 366 : 365;
+    year++;
   }
   time += tm->tm_yday;
   // time is now in days elapsed since 1970
