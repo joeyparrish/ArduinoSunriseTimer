@@ -1,6 +1,6 @@
 # Arduino Sunrise Timer Library
 
-https://github.com/joeyparrish/ArduinoSunriseTimer
+<https://github.com/joeyparrish/ArduinoSunriseTimer>
 
 A library to calculate whether the sun is up or down, and the time remaining
 until the next transition (sunrise/sunset) in seconds.  Calculated based on the
@@ -38,13 +38,24 @@ None!
 
 ## Motivation
 
-TODO
+The original version of this library from
+<https://github.com/JChristensen/JC_Sunrise> was lacking in a couple key ways:
+
+ - Oriented around local times, making it confusing to use in UTC
+ - Oriented around time of day (hour & minute), rather than `time_t`
+ - Methods that output `time_t` were broken when using anything other than UTC
+ - Methods that output `time_t` were broken also when using UTC, since they
+   didn't handle edge cases and were often off by a day
+ - Couldn't be used directly on Linux for comparison or verification
+
+This fork addresses all of these issues.  Finally, I changed the API more
+radically to make it more useful for my own plans, which involve putting a
+device to sleep until the sunrise/sunset transition point.
 
 
 ## Example Sketch
 
-For a fully-feature example sketch, see
-[examples/Demo/Demo.ino](examples/Demo/Demo.ino).
+For a fully-feature example sketch, see <examples/Demo/Demo.ino>.
 
 You can also run `make` on Linux to build locally with GCC.
 
