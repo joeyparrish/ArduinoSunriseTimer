@@ -14,7 +14,14 @@
 
 #include <SunriseTimer.h>
 
-#ifndef ARDUINO
+#ifdef ARDUINO
+void printPadded(int num) {
+  if (num < 10) {
+    Serial.print("0");
+  }
+  Serial.print(num);
+}
+#else
 # include <stdio.h>
 #endif
 
@@ -47,9 +54,9 @@ void testTime(time_t now) {
 
 #ifdef ARDUINO
   Serial.print("Input time is ");
-  Serial.print(tmNow.tm_hour);
+  printPadded(tmNow.tm_hour);
   Serial.print(":");
-  Serial.print(tmNow.tm_min);
+  printPadded(tmNow.tm_min);
   Serial.print(" (@");
   Serial.print(now);
   Serial.println(")");
@@ -67,14 +74,14 @@ void testTime(time_t now) {
 
 #ifdef ARDUINO
   Serial.print("Last transition time was ");
-  Serial.print(tmLast.tm_hour);
+  printPadded(tmLast.tm_hour);
   Serial.print(":");
-  Serial.print(tmLast.tm_min);
+  printPadded(tmLast.tm_min);
   Serial.print(" (@");
   Serial.print(lastTransition);
   Serial.print("), ");
   Serial.print(secondsSinceLastTransition);
-  Serial.println("seconds ago.");
+  Serial.println(" seconds ago.");
 #else
   printf("Last transition time was %02d:%02d (@%ld), %ld seconds ago.\n",
       tmLast.tm_hour, tmLast.tm_min, (long)lastTransition,
@@ -83,17 +90,17 @@ void testTime(time_t now) {
 
 #ifdef ARDUINO
   Serial.print("Next transition time is ");
-  Serial.print(tmNext.tm_hour);
+  printPadded(tmNext.tm_hour);
   Serial.print(":");
-  Serial.print(tmNext.tm_min);
+  printPadded(tmNext.tm_min);
   Serial.print(" (@");
   Serial.print(nextTransition);
   Serial.print("), in ");
   Serial.print(secondsUntilNextTransition);
-  Serial.println("seconds.");
+  Serial.println(" seconds.");
   Serial.println("");
 #else
-  printf("Transition time is %02d:%02d (@%ld), in %ld seconds.\n\n",
+  printf("Next transition time is %02d:%02d (@%ld), in %ld seconds.\n\n",
       tmNext.tm_hour, tmNext.tm_min, (long)nextTransition,
       (long)secondsUntilNextTransition);
 #endif
