@@ -6,7 +6,7 @@
 // Based on https://github.com/JChristensen/JC_Sunrise by Jack Christensen
 //
 // Arduino library to calculate whether or not the sun is up, and the time
-// until the next transition (sunrise or sunset), with optional offsets.
+// until the next transition (sunrise or sunset).
 
 // This example runs on Linux and Arduino.  To compile on Linux, use:
 //   g++ -o demo -x c++ -I src examples/Demo/Demo.ino src/SunriseTimer.cpp
