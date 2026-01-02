@@ -1,12 +1,12 @@
-// Arduino Sunrise Timer Library
+// Arduino Sun Timer Library
 // https://github.com/joeyparrish/ArduinoSunriseTimer
 // Copyright (C) 2025 by Joey Parrish and licensed under
 // GNU GPL v3.0, https://www.gnu.org/licenses/gpl.html
 //
 // Based on https://github.com/JChristensen/JC_Sunrise by Jack Christensen
 //
-// Arduino library to calculate whether or not the sun is up, and the time
-// until the next transition (sunrise or sunset).
+// Arduino library to calculate the phase of the day, and the time until the
+// next transition.
 
 #include <SunriseTimer.h>
 #include <math.h>
@@ -15,6 +15,7 @@ static constexpr float pi {3.141593};
 static constexpr uint32_t SECONDS_PER_DAY {86400};
 static constexpr uint32_t SECONDS_PER_HOUR {3600};
 static constexpr uint32_t SECONDS_PER_MINUTE {60};
+static constexpr uint32_t MINUTES_PER_DAY {1440};
 
 // Input years are offset from 1970
 #define FULL_YEAR(Y) (1970 + (Y))
@@ -153,72 +154,135 @@ static int32_t normalizeSecondsInDay(int32_t seconds) {
   return seconds;
 }
 
-// Calculate whether or not the sun is up, and how long until the next
-// transition (sunrise or sunset).
-void SunriseTimer::calculate(
-    time_t time, bool* isUp,
-    int32_t* secondsSinceLastTransition,
-    int32_t* secondsUntilNextTransition) {
-  uint16_t timeOfDayInput, timeOfDayTransition;
-  struct tm tmInput, tmTransition;
-
-  gmtime_r(&time, &tmInput);
-  timeOfDayInput = tmInput.tm_hour * 60 + tmInput.tm_min;
-
-  // Check sunrise for this day of the year.
-  // TODO: Handle edge case where this returns false.
-  calcSunset(&tmInput, /* offsetDays= */ 0, /* sunset= */ false, &tmTransition);
-  timeOfDayTransition = tmTransition.tm_hour * 60 + tmTransition.tm_min;
-
-  if (timeOfDayTransition > timeOfDayInput) {
-    // Waiting on sunrise.
-    if (isUp) *isUp = false;
-
-    time_t nextTransition = timegm(&tmTransition);
-    if (secondsUntilNextTransition) {
-      *secondsUntilNextTransition =
-          normalizeSecondsInDay(nextTransition - time);
-    }
-
-    if (secondsSinceLastTransition) {
-      // Also compute yesterday's sunset.
-      calcSunset(
-          &tmInput, /* offsetDays= */ -1, /* sunset= */ true, &tmTransition);
-
-      time_t lastTransition = timegm(&tmTransition);
-      *secondsSinceLastTransition =
-          normalizeSecondsInDay(time - lastTransition);
-    }
-    return;
-  }
-
-  // Waiting on sunset.
-  if (isUp) *isUp = true;
-  if (secondsSinceLastTransition) {
-    time_t lastTransition = timegm(&tmTransition);
-    *secondsSinceLastTransition = normalizeSecondsInDay(time - lastTransition);
-  }
-
-  // Check sunset for this day of the year.
-  // TODO: Handle edge case where this returns false.
-  calcSunset(&tmInput, /* offsetDays= */ 0, /* sunset= */ true, &tmTransition);
-
-  time_t nextTransition = timegm(&tmTransition);
-  if (secondsUntilNextTransition) {
-    *secondsUntilNextTransition = normalizeSecondsInDay(nextTransition - time);
+void SunTimer::phaseParameters(phase_t phase, float* zenith, bool* sunset) {
+  switch (phase) {
+    case ASTRONOMICAL_TWILIGHT_MORNING:
+      *zenith = astronomicalZenith;
+      *sunset = false;
+      break;
+    case NAUTICAL_TWILIGHT_MORNING:
+      *zenith = nauticalZenith;
+      *sunset = false;
+      break;
+    case CIVIL_TWILIGHT_MORNING:
+      *zenith = civilZenith;
+      *sunset = false;
+      break;
+    case DAY:
+      *zenith = officialZenith;
+      *sunset = false;
+      break;
+    case CIVIL_TWILIGHT_EVENING:
+      *zenith = officialZenith;
+      *sunset = true;
+      break;
+    case NAUTICAL_TWILIGHT_EVENING:
+      *zenith = civilZenith;
+      *sunset = true;
+      break;
+    case ASTRONOMICAL_TWILIGHT_EVENING:
+      *zenith = nauticalZenith;
+      *sunset = true;
+      break;
+    case NIGHT:
+      *zenith = astronomicalZenith;
+      *sunset = true;
+      break;
   }
 }
 
-bool SunriseTimer::calcSunset(
-    const struct tm* tmIn, int offsetDays, bool sunset, struct tm* tmOut) {
+const char* SunTimer::phase_name(phase_t phase) {
+  switch (phase) {
+    case ASTRONOMICAL_TWILIGHT_MORNING:
+      return "ASTRONOMICAL_TWILIGHT_MORNING";
+    case NAUTICAL_TWILIGHT_MORNING:
+      return "NAUTICAL_TWILIGHT_MORNING";
+    case CIVIL_TWILIGHT_MORNING:
+      return "CIVIL_TWILIGHT_MORNING";
+    case DAY:
+      return "DAY";
+    case CIVIL_TWILIGHT_EVENING:
+      return "CIVIL_TWILIGHT_EVENING";
+    case NAUTICAL_TWILIGHT_EVENING:
+      return "NAUTICAL_TWILIGHT_EVENING";
+    case ASTRONOMICAL_TWILIGHT_EVENING:
+      return "ASTRONOMICAL_TWILIGHT_EVENING";
+    case NIGHT:
+      return "NIGHT";
+  }
+}
+
+// Calculate what phase of the day we are in, and how long until the next
+// transition.
+void SunTimer::calculate(
+    time_t time, phase_t* currentPhase, int32_t* secondsUntilNextPhase) {
+  uint16_t inputTimeOfDay;
+  struct tm tmInput;
+  gmtime_r(&time, &tmInput);
+  inputTimeOfDay = tmInput.tm_hour * 60 + tmInput.tm_min;
+
+  uint16_t lastPhaseTimeOfDay = 0;
+  uint16_t wrapAroundOffset = 0;
+  uint16_t phaseBeginsTimeOfDay = 0;
+  for (phase_t phase = phase_t::MIN;
+       phase <= phase_t::MAX;
+       phase = (phase_t)((int)phase + 1)) {
+    if (!phaseBegins(&tmInput, phase, &phaseBeginsTimeOfDay)) {
+      continue;
+    }
+
+    if (phaseBeginsTimeOfDay < lastPhaseTimeOfDay) {
+      wrapAroundOffset = MINUTES_PER_DAY;
+    }
+    phaseBeginsTimeOfDay += wrapAroundOffset;
+
+    if (phaseBeginsTimeOfDay > inputTimeOfDay) {
+      if (phase == phase_t::MIN) {
+        *currentPhase = phase_t::MAX;
+      } else {
+        *currentPhase = (phase_t)((int)phase - 1);
+      }
+
+      *secondsUntilNextPhase = (phaseBeginsTimeOfDay - inputTimeOfDay) * 60;
+      return;
+    }
+
+    lastPhaseTimeOfDay = phaseBeginsTimeOfDay;
+  }
+
+  // It's night, before midnight.  Calculate tomorrow's sunrise.
+  tmInput.tm_yday++;
+  phaseBegins(&tmInput, phase_t::MIN, &phaseBeginsTimeOfDay);
+  *currentPhase = phase_t::MAX;
+  *secondsUntilNextPhase = (MINUTES_PER_DAY + phaseBeginsTimeOfDay - inputTimeOfDay) * 60;
+}
+
+bool SunTimer::phaseBegins(
+    const struct tm* tmInput, phase_t phase, uint16_t* timeOfDay) {
+  float zenith = officialZenith;
+  bool sunset = false;
+  phaseParameters(phase, &zenith, &sunset);
+
+  struct tm tmOut;
+  if (calcSunset(tmInput, sunset, zenith, &tmOut)) {
+    *timeOfDay = tmOut.tm_hour * 60 + tmOut.tm_min;
+    return true;
+  }
+
+  return false;
+}
+
+bool SunTimer::calcSunset(
+    const struct tm* tmIn, bool sunset, float zenith, struct tm* tmOut) {
   int8_t hourOut, minuteOut;
 
   if (calcSunsetPrimitive(
-      tmIn->tm_yday + offsetDays, sunset, hourOut, minuteOut)) {
+      tmIn->tm_yday, sunset, zenith, hourOut, minuteOut)) {
     *tmOut = *tmIn;
     tmOut->tm_hour = hourOut;
     tmOut->tm_min = minuteOut;
     tmOut->tm_sec = 0;
+    return true;
   }
 
   return false;
@@ -271,8 +335,8 @@ bool SunriseTimer::calcSunset(
 // Note: longitude is positive for East and negative for West
 //       latitude is positive for North and negative for south
 
-bool SunriseTimer::calcSunsetPrimitive(
-    int doy, bool sunset, int8_t& hourOut, int8_t& minutesOut) {
+bool SunTimer::calcSunsetPrimitive(
+    int doy, bool sunset, float zenith, int8_t& hourOut, int8_t& minutesOut) {
   hourOut = minutesOut = 0;
 
   if (doy < 0) {
@@ -314,7 +378,7 @@ bool SunriseTimer::calcSunsetPrimitive(
   float cosdec = cos(asin(sindec));
 
   // Calculate the Sun's local hour angle
-  float cosh = (cos(deg2rad(m_zenith)) - (sindec * sin(deg2rad(m_lat))))
+  float cosh = (cos(deg2rad(zenith)) - (sindec * sin(deg2rad(m_lat))))
     / (cosdec * cos(deg2rad(m_lat)));
 
   // if cosH > 1 the sun never rises on this date at this location
@@ -349,7 +413,7 @@ bool SunriseTimer::calcSunsetPrimitive(
   return true;
 }
 
-float SunriseTimer::AdjustTo360(float i) {
+float SunTimer::AdjustTo360(float i) {
   if (i > 360.0) {
     i -= 360.0;
   } else if (i < 0.0) {
@@ -358,10 +422,10 @@ float SunriseTimer::AdjustTo360(float i) {
   return i;
 }
 
-float SunriseTimer::deg2rad(float degrees) {
+float SunTimer::deg2rad(float degrees) {
   return degrees * pi / 180.0;
 }
 
-float SunriseTimer::rad2deg(float radians) {
+float SunTimer::rad2deg(float radians) {
   return radians / (pi / 180.0);
 }

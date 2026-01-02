@@ -25,32 +25,25 @@ void printPadded(int num) {
 # include <stdio.h>
 #endif
 
-constexpr float zenith = SunriseTimer::civilZenith;
-SunriseTimer location(34.0522, -118.2437, zenith);
+SunTimer location(47.68, -122.21);
 
 void testTime(time_t now) {
-  bool isUp;
-  int32_t secondsSinceLastTransition, secondsUntilNextTransition;
-  location.calculate(now, &isUp,
-      &secondsSinceLastTransition, &secondsUntilNextTransition);
+  SunTimer::phase_t phase;
+  int32_t secondsUntilNextPhase;
+  location.calculate(now, &phase, &secondsUntilNextPhase);
 
-  // Now you know the state (isUp) and how many seconds until the next
-  // transition (secondsUntilNextTransition).
+  // Now you know the phase and how many seconds until the next phase.
 
   // Everything below here is printing and formatting for inspection.
   // You should get the same results on your PC as on the Arduino.
 
-  time_t lastTransition = now - secondsSinceLastTransition;
-  time_t nextTransition = now + secondsUntilNextTransition;
+  time_t nextPhase = now + secondsUntilNextPhase;
 
   struct tm tmNow;
   gmtime_r(&now, &tmNow);
 
-  struct tm tmLast;
-  gmtime_r(&lastTransition, &tmLast);
-
   struct tm tmNext;
-  gmtime_r(&nextTransition, &tmNext);
+  gmtime_r(&nextPhase, &tmNext);
 
 #ifdef ARDUINO
   Serial.print("Input time is ");
@@ -66,26 +59,10 @@ void testTime(time_t now) {
 #endif
 
 #ifdef ARDUINO
-  Serial.print("The sun is ");
-  Serial.println(isUp ? "up!" : "down!");
+  Serial.print("The phase is ");
+  Serial.println(SunTimer::phase_name(phase));
 #else
-  printf("The sun is %s!\n", isUp ? "up" : "down");
-#endif
-
-#ifdef ARDUINO
-  Serial.print("Last transition time was ");
-  printPadded(tmLast.tm_hour);
-  Serial.print(":");
-  printPadded(tmLast.tm_min);
-  Serial.print(" (@");
-  Serial.print(lastTransition);
-  Serial.print("), ");
-  Serial.print(secondsSinceLastTransition);
-  Serial.println(" seconds ago.");
-#else
-  printf("Last transition time was %02d:%02d (@%ld), %ld seconds ago.\n",
-      tmLast.tm_hour, tmLast.tm_min, (long)lastTransition,
-      (long)secondsSinceLastTransition);
+  printf("The phase is %s\n", SunTimer::phase_name(phase));
 #endif
 
 #ifdef ARDUINO
@@ -94,15 +71,15 @@ void testTime(time_t now) {
   Serial.print(":");
   printPadded(tmNext.tm_min);
   Serial.print(" (@");
-  Serial.print(nextTransition);
+  Serial.print(nextPhase);
   Serial.print("), in ");
-  Serial.print(secondsUntilNextTransition);
+  Serial.print(secondsUntilNextPhase);
   Serial.println(" seconds.");
   Serial.println("");
 #else
   printf("Next transition time is %02d:%02d (@%ld), in %ld seconds.\n\n",
-      tmNext.tm_hour, tmNext.tm_min, (long)nextTransition,
-      (long)secondsUntilNextTransition);
+      tmNext.tm_hour, tmNext.tm_min, (long)nextPhase,
+      (long)secondsUntilNextPhase);
 #endif
 }
 
@@ -118,11 +95,11 @@ void setup() {
   testTime(1735783200);  // 2025-01-02 02:00:00 UTC
 
   // A sequence of sunrise/sunset events
-  testTime(1765454400);  // 2025-12-11 12:00:00 UTC, 4AM US/PST, before sunrise
-  testTime(1765490400);  // 2025-12-11 22:00:00 UTC, 2PM US/PST, daytime
-  testTime(1765512000);  // 2025-12-12 04:00:00 UTC, 8PM US/PST, after sunset
-  testTime(1765548000);  // 2025-12-12 14:00:00 UTC, 6AM US/PST, before next sunrise
-  testTime(1765555200);  // 2025-12-12 16:00:00 UTC, 8AM US/PST, after next sunrise
+  testTime(1765454400);  // 2025-12-11 12:00:00 UTC, 4AM US/PST, NIGHT
+  testTime(1765490400);  // 2025-12-11 22:00:00 UTC, 2PM US/PST, DAY
+  testTime(1765512000);  // 2025-12-12 04:00:00 UTC, 8PM US/PST, NIGHT
+  testTime(1765548000);  // 2025-12-12 14:00:00 UTC, 6AM US/PST, ASTRONOMICAL_TWILIGHT_MORNING
+  testTime(1765555200);  // 2025-12-12 16:00:00 UTC, 8AM US/PST, DAY
 }
 
 #ifdef ARDUINO

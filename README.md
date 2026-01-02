@@ -1,11 +1,11 @@
-# Arduino Sunrise Timer Library
+# Arduino Sun Timer Library
 
 <https://github.com/joeyparrish/ArduinoSunriseTimer>
 
-A library to calculate whether the sun is up or down, and the time remaining
-until the next transition (sunrise/sunset) in seconds.  Calculated based on the
-current time (epoch time, seconds since 1970 UTC) for a given latitude,
-longitude, and angle at which the sun is considered "up".
+
+A library to calculate the phase of the day, and the time until the next
+transition in seconds.  Calculated based on the current time (epoch time,
+seconds since 1970 UTC) for a given latitude and longitude.
 
 All times are given in UTC, so there is no need to configure a timezone offset.
 This can be connected directly to a GPS, which knows the time in UTC and your
@@ -50,7 +50,7 @@ The original version of this library from
 
 This fork addresses all of these issues.  Finally, I changed the API more
 radically to make it more useful for my own plans, which involve putting a
-device to sleep until the sunrise/sunset transition point.
+device to sleep until the next transition point.
 
 
 ## Example Sketch
@@ -66,23 +66,12 @@ You can also run `make` on Linux to build locally with GCC.
 
 ### Constructor
 
-`SunriseTimer(lat, lon, zenith)`
+`SunTimer(lat, lon)`
 
-Define a sunrise timer for a particular location and definition of sunrise.
+Define a sun timer for a particular location and definition of sunrise.
 
- - **lat:** Latitude *(float)*  
- - **lon:** Longitude *(float)*  
- - **zenith:** Sun's angle for sunrise/sunset *(float)*  
-
-Several constants are available that can be used for the zenith parameter for
-different ways to define sunrise/sunset:
-
-```c++
-SunriseTimer::officialZenith {90.83333}  
-SunriseTimer::civilZenith {96.0}  
-SunriseTimer::nauticalZenith {102.0}  
-SunriseTimer::astronomicalZenith {108.0}
-```
+ - **lat:** Latitude *(float)*
+ - **lon:** Longitude *(float)*
 
 #### Example
 
@@ -92,22 +81,28 @@ SunriseTimer::astronomicalZenith {108.0}
 // ...
 
   constexpr float myLat {45.8171}, myLon {-84.7278};
-  SunriseTimer myLocation {myLat, myLon, SunriseTimer::officialZenith};
+  SunTimer myLocation {myLat, myLon};
 ```
 
 
 ### calculate
 
-`void calculate(time_t t, bool& isUp, int32_t& secondsUntilTransition)`
+`void calculate(time_t time, phase_t* currentPhase, int32_t* secondsUntilNextPhase)`
 
-Calculate whether the sun is currently up, and how long until the next
-transition.
+Calculate what phase we're currently in, and how long until the next transition.
 
- - **t:** Current Unix epoch time (seconds since 00:00, January 1, 1970, UTC).
- - **isUp:** Output variable, true if the sun is currently up (between sunrise
-     & sunset).
- - **secondsUntilTransition:** Output variable, seconds until the next
-     transition (sunset if the sun is up, sunrise if it isn't).
+ - **time:** Current Unix epoch time (seconds since 00:00, January 1, 1970, UTC).
+ - **currentPhase:** Output variable, the current phase of the day (e.g.
+     `ASTRONOMICAL_TWILIGHT_MORNING`,
+     `NAUTICAL_TWILIGHT_MORNING`,
+     `CIVIL_TWILIGHT_MORNING`,
+     `DAY`,
+     `CIVIL_TWILIGHT_EVENING`,
+     `NAUTICAL_TWILIGHT_EVENING`,
+     `ASTRONOMICAL_TWILIGHT_EVENING`,
+     or `NIGHT`)
+ - **secondsUntilNextPhase:** Output variable, seconds until the next
+     phase begins.
 
 #### Example
 
@@ -117,7 +112,7 @@ transition.
 // ...
 
   constexpr float myLat {45.8171}, myLon {-84.7278};
-  SunriseTimer myLocation {myLat, myLon, SunriseTimer::officialZenith};
+  SunTimer myLocation {myLat, myLon};
 
   // Construct a fake time: midnight, January 1, 2022.
   struct tm tm;
@@ -133,22 +128,22 @@ transition.
   time_t now = timegm(&tm);
 
   // Compute the state of the sun and time until transition.
-  bool isUp;
-  int32_t secondsUntilTransition;
-  myLocation.calculate(isUp, secondsUntilTransition);
+  SunTimer::phase_t phase;
+  int32_t secondsUntilNextPhase;
+  myLocation.calculate(now, &phase, &secondsUntilNextPhase);
 
 #ifdef ARDUINO
-  Serial.print("The sun is ");
-  Serial.println(isUp ? "up!", "down!");
+  Serial.print("The phase is ");
+  Serial.println(SunTimer::phase_name(phase));
 #else
-  printf("The sun is %s!\n", isUp ? "up" : "down");
+  printf("The phase is %s\n", SunTimer::phase_name(phase));
 #endif
 
 #ifdef ARDUINO
   Serial.print("Transition time is in ");
-  Serial.print(secondsUntilTransition);
+  Serial.print(secondsUntilNextPhase);
   Serial.println("seconds.");
 #else
-  printf("Transition time is in %ld seconds.\n\n", (long)secondsUntilTransition);
+  printf("Transition time is in %ld seconds.\n", (long)secondsUntilNextPhase);
 #endif
 ```

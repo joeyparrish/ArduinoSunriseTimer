@@ -5,11 +5,11 @@
 //
 // Based on https://github.com/JChristensen/JC_Sunrise by Jack Christensen
 //
-// Arduino library to calculate whether or not the sun is up, and the time
-// until the next transition (sunrise or sunset).
+// Arduino library to calculate the phase of the day, and the time until the
+// next transition.
 
-#ifndef SUNRISE_TIMER_H_INCLUDED
-#define SUNRISE_TIMER_H_INCLUDED
+#ifndef SUN_TIMER_H_INCLUDED
+#define SUN_TIMER_H_INCLUDED
 
 #include <stdint.h>
 
@@ -31,32 +31,52 @@ struct tm* gmtime_r(const time_t* timeInput, struct tm* tm);
 time_t timegm(struct tm *tm);
 #endif
 
-class SunriseTimer {
+class SunTimer {
 public:
-  SunriseTimer(float lat, float lon, float zenith)
-      : m_lat{lat}, m_lon{lon}, m_zenith{zenith} {}
+  SunTimer(float lat, float lon)
+      : m_lat{lat}, m_lon{lon} {}
 
-  void calculate(time_t time, bool* isUp,
-                 int32_t* secondsSinceLastTransition,
-                 int32_t* secondsUntilNextTransition);
+  typedef enum {
+    ASTRONOMICAL_TWILIGHT_MORNING,
+    NAUTICAL_TWILIGHT_MORNING,
+    CIVIL_TWILIGHT_MORNING,
+    DAY,
+    CIVIL_TWILIGHT_EVENING,
+    NAUTICAL_TWILIGHT_EVENING,
+    ASTRONOMICAL_TWILIGHT_EVENING,
+    NIGHT,
 
+    MIN = ASTRONOMICAL_TWILIGHT_MORNING,
+    MAX = NIGHT,
+  } phase_t;
+
+  void calculate(
+      time_t time, phase_t* currentPhase, int32_t* secondsUntilNextPhase);
+
+  static const char* phase_name(phase_t phase);
+
+private:
   static constexpr float
       officialZenith {90.83333},
       civilZenith {96.0},
       nauticalZenith {102.0},
       astronomicalZenith {108.0};
 
-private:
   float m_lat;
   float m_lon;
   float m_zenith;
 
-  bool calcSunset(const struct tm* tmIn, int offsetDays, bool sunset, struct tm* tmOut);
-  bool calcSunsetPrimitive(int doy, bool sunset, int8_t& hourOut, int8_t& minutesOut);
+  void phaseParameters(phase_t phase, float* zenith, bool* sunset);
+  bool phaseBegins(
+      const struct tm* tmInput, phase_t phase, uint16_t* timeOfDay);
+  bool calcSunset(
+      const struct tm* tmIn, bool sunset, float zenith, struct tm* tmOut);
+  bool calcSunsetPrimitive(
+      int doy, bool sunset, float zenith, int8_t& hourOut, int8_t& minutesOut);
 
   float AdjustTo360(float i);
   float deg2rad(float degrees);
   float rad2deg(float radians);
 };
 
-#endif  // SUNRISE_TIMER_H_INCLUDED
+#endif  // SUN_TIMER_H_INCLUDED
