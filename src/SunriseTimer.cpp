@@ -89,7 +89,7 @@ struct tm* gmtime_r(const time_t* timeInput, struct tm* tm) {
     if (time >= monthLength) {
       time -= monthLength;
     } else {
-        break;
+      break;
     }
   }
 
@@ -99,7 +99,8 @@ struct tm* gmtime_r(const time_t* timeInput, struct tm* tm) {
   return tm;
 }
 
-// Expects tm->tm_yday to be correct, and ignores tm->tm_mon and tm->mday!
+// Works on tm_mon and tm_mday if they are set and valid, but uses tm_yday
+// otherwise.  The official one only seems to use tm_mon and tm_mday.
 time_t timegm(struct tm *tm) {
   time_t time = 0;
   uint16_t targetYear = tm->tm_year - 70;  // 1900-base to 1970-base
@@ -109,7 +110,27 @@ time_t timegm(struct tm *tm) {
     time += LEAP_YEAR(year) ? 366 : 365;
     year++;
   }
-  time += tm->tm_yday;
+
+  // Use mon and mday if possible, yday otherwise.
+  if (tm->tm_mon >= 0 && tm->tm_mon <= 11 &&
+      tm->tm_mday >= 1 && tm->tm_mday <= 31) {
+    for (int8_t month = 0; month < tm->tm_mon; month++) {
+      if (month == 1) { // february
+        if (LEAP_YEAR(year)) {
+          monthLength = 29;
+        } else {
+          monthLength = 28;
+        }
+      } else {
+        monthLength = monthDays[month];
+      }
+      time += monthLength;
+    }
+
+    time += tm->tm_mday - 1;  // mday is 1-based
+  } else {
+    time += tm->tm_yday;
+  }
   // time is now in days elapsed since 1970
 
   time *= SECONDS_PER_DAY;
@@ -241,7 +262,7 @@ bool SunriseTimer::calcSunset(
 // lon: The longitude of the location to calculate sunset/rise for
 // sunset: true to calculate sunset, false to calculate sunrise
 // zenith: Sun's zenith for sunrise/sunset
-//         offical      = 90 degrees 50'  (90.8333)
+//         official     = 90 degrees 50'  (90.8333)
 //         civil        = 96 degrees
 //         nautical     = 102 degrees
 //         astronomical = 108 degrees
