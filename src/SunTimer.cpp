@@ -404,7 +404,7 @@ bool SunTimer::calcSunsetPrimitive(
   t = h + ra - (0.06571 * t) - 6.622;
 
   // Adjust back to UTC
-  float ut = t - lonhour;
+  float ut = AdjustTo24(t - lonhour);
 
   hourOut = floor(ut);
   // rounded above, so letting the float-to-int assignment truncate is OK -- jc
@@ -412,6 +412,15 @@ bool SunTimer::calcSunsetPrimitive(
   minutesOut = 60.0 * (ut - hourOut);
 
   return true;
+}
+
+float SunTimer::AdjustTo24(float i) {
+  if (i > 24.0) {
+    i -= 24.0;
+  } else if (i < 0.0) {
+    i += 24.0;
+  }
+  return i;
 }
 
 float SunTimer::AdjustTo360(float i) {

@@ -74,9 +74,10 @@ private:
   bool calcSunsetPrimitive(
       int doy, bool sunset, float zenith, int8_t& hourOut, int8_t& minutesOut);
 
-  float AdjustTo360(float i);
-  float deg2rad(float degrees);
-  float rad2deg(float radians);
+  static float AdjustTo24(float i);
+  static float AdjustTo360(float i);
+  static float deg2rad(float degrees);
+  static float rad2deg(float radians);
 };
 
 #endif  // SUN_TIMER_H_INCLUDED

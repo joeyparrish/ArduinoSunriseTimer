@@ -100,6 +100,9 @@ void setup() {
   testTime(1765512000);  // 2025-12-12 04:00:00 UTC, 8PM US/PST, NIGHT
   testTime(1765548000);  // 2025-12-12 14:00:00 UTC, 6AM US/PST, ASTRONOMICAL_TWILIGHT_MORNING
   testTime(1765555200);  // 2025-12-12 16:00:00 UTC, 8AM US/PST, DAY
+
+  // Regression tests... these didn't work at some point.
+  testTime(1767396030);  // 2026-01-02 23:20:00 UTC, 15:20 US/PST, DAY
 }
 
 #ifdef ARDUINO
