@@ -1,11 +1,11 @@
 # Arduino Sun Timer Library
 
-<https://github.com/joeyparrish/ArduinoSunriseTimer>
+<https://github.com/joeyparrish/ArduinoSunTimer>
 
 
 A library to calculate the phase of the day, and the time until the next
-transition in seconds.  Calculated based on the current time (epoch time,
-seconds since 1970 UTC) for a given latitude and longitude.
+phase in seconds.  Calculated based on the current time (epoch time, seconds
+since 1970 UTC) for a given latitude and longitude.
 
 All times are given in UTC, so there is no need to configure a timezone offset.
 This can be connected directly to a GPS, which knows the time in UTC and your
@@ -17,7 +17,7 @@ Arduino output.
 
 ## License
 
-Arduino Sunrise Timer Library Copyright (C) 2025 Joey Parrish under GNU GPL v3.0
+Arduino Sun Timer Library Copyright (C) 2025 Joey Parrish under GNU GPL v3.0
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License v3.0 as published by the Free
@@ -76,7 +76,7 @@ Define a sun timer for a particular location and definition of sunrise.
 #### Example
 
 ```c++
-#include <SunriseTimer.h>
+#include <SunTimer.h>
 
 // ...
 
@@ -107,7 +107,7 @@ Calculate what phase we're currently in, and how long until the next transition.
 #### Example
 
 ```c++
-#include <SunriseTimer.h>
+#include <SunTimer.h>
 
 // ...
 

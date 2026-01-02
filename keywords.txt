@@ -1,6 +1,11 @@
-SunriseTimer    KEYWORD1
-calculate	KEYWORD2
-officialZenith	LITERAL1
-civilZenith	LITERAL1
-nauticalZenith	LITERAL1
-astronomicalZenith	LITERAL1
+SunTimer                        KEYWORD1
+calculate                       KEYWORD2
+phase_t                         KEYWORD1
+ASTRONOMICAL_TWILIGHT_MORNING   LITERAL1
+NAUTICAL_TWILIGHT_MORNING       LITERAL1
+CIVIL_TWILIGHT_MORNING          LITERAL1
+DAY                             LITERAL1
+CIVIL_TWILIGHT_EVENING          LITERAL1
+NAUTICAL_TWILIGHT_EVENING       LITERAL1
+ASTRONOMICAL_TWILIGHT_EVENING   LITERAL1
+NIGHT                           LITERAL1

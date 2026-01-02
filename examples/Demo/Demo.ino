@@ -1,18 +1,18 @@
-// Arduino Sunrise Timer Library
-// https://github.com/joeyparrish/ArduinoSunriseTimer
+// Arduino Sun Timer Library
+// https://github.com/joeyparrish/ArduinoSunTimer
 // Copyright (C) 2025 by Joey Parrish and licensed under
 // GNU GPL v3.0, https://www.gnu.org/licenses/gpl.html
 //
 // Based on https://github.com/JChristensen/JC_Sunrise by Jack Christensen
 //
-// Arduino library to calculate whether or not the sun is up, and the time
-// until the next transition (sunrise or sunset).
+// A library to calculate the phase of the day, and the time until the next
+// phase.
 
 // This example runs on Linux and Arduino.  To compile on Linux, use:
-//   g++ -o demo -x c++ -I src examples/Demo/Demo.ino src/SunriseTimer.cpp
+//   g++ -o demo -x c++ -I src examples/Demo/Demo.ino src/SunTimer.cpp
 //   ./demo
 
-#include <SunriseTimer.h>
+#include <SunTimer.h>
 
 #ifdef ARDUINO
 void printPadded(int num) {

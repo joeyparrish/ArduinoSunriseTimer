@@ -1,12 +1,12 @@
-// Arduino Sunrise Timer Library
-// https://github.com/joeyparrish/ArduinoSunriseTimer
+// Arduino Sun Timer Library
+// https://github.com/joeyparrish/ArduinoSunTimer
 // Copyright (C) 2025 by Joey Parrish and licensed under
 // GNU GPL v3.0, https://www.gnu.org/licenses/gpl.html
 //
 // Based on https://github.com/JChristensen/JC_Sunrise by Jack Christensen
 //
-// Arduino library to calculate the phase of the day, and the time until the
-// next transition.
+// A library to calculate the phase of the day, and the time until the next
+// phase.
 
 #ifndef SUN_TIMER_H_INCLUDED
 #define SUN_TIMER_H_INCLUDED
