@@ -116,6 +116,7 @@ time_t timegm(struct tm *tm) {
   if (tm->tm_mon >= 0 && tm->tm_mon <= 11 &&
       tm->tm_mday >= 1 && tm->tm_mday <= 31) {
     for (int8_t month = 0; month < tm->tm_mon; month++) {
+      uint8_t monthLength;
       if (month == 1) { // february
         if (LEAP_YEAR(year)) {
           monthLength = 29;
