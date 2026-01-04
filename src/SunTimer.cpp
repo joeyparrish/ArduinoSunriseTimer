@@ -41,7 +41,7 @@ static const uint8_t monthDays[] = {
   31, // Dec
 };
 
-#ifdef ARDUINO
+#if defined(SUN_TIMER_PROVIDES_TIME_T)
 struct tm* gmtime_r(const time_t* timeInput, struct tm* tm) {
   // Based on https://github.com/PaulStoffregen/Time/blob/master/Time.cpp
   // Originally Copyright (c) Michael Margolis 2009-2014
@@ -211,6 +211,7 @@ const char* SunTimer::phase_name(phase_t phase) {
     case NIGHT:
       return "NIGHT";
   }
+  return "INVALID";
 }
 
 // Calculate what phase of the day we are in, and how long until the next

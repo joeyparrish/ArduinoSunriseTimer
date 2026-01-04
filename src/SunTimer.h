@@ -13,9 +13,17 @@
 
 #include <stdint.h>
 
-#ifndef ARDUINO
+#if !defined(ARDUINO)
 # include <time.h>
 #else
+# include <Arduino.h>
+# if defined(__time_t_defined)
+// Arduino cores that have time_t may not have timegm.  Use mktime instead,
+// assuming that the Arduino will use UTC as the local timezone.
+#  include <time.h>
+#  define timegm mktime
+# else
+#  define SUN_TIMER_PROVIDES_TIME_T
 typedef uint32_t time_t;
 typedef struct tm {
   int8_t tm_sec;  // 0 to 59
@@ -29,6 +37,7 @@ typedef struct tm {
 
 struct tm* gmtime_r(const time_t* timeInput, struct tm* tm);
 time_t timegm(struct tm *tm);
+# endif
 #endif
 
 class SunTimer {
