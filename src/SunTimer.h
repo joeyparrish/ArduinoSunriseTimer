@@ -62,7 +62,7 @@ public:
   void calculate(
       time_t time, phase_t* currentPhase, int32_t* secondsUntilNextPhase);
 
-  static const char* phase_name(phase_t phase);
+  static const char* phaseName(phase_t phase);
 
 private:
   static constexpr float

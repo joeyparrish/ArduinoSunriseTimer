@@ -192,7 +192,7 @@ void SunTimer::phaseParameters(phase_t phase, float* zenith, bool* sunset) {
   }
 }
 
-const char* SunTimer::phase_name(phase_t phase) {
+const char* SunTimer::phaseName(phase_t phase) {
   switch (phase) {
     case ASTRONOMICAL_TWILIGHT_MORNING:
       return "ASTRONOMICAL_TWILIGHT_MORNING";

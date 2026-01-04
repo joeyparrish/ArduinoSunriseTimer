@@ -134,9 +134,9 @@ Calculate what phase we're currently in, and how long until the next transition.
 
 #ifdef ARDUINO
   Serial.print("The phase is ");
-  Serial.println(SunTimer::phase_name(phase));
+  Serial.println(SunTimer::phaseName(phase));
 #else
-  printf("The phase is %s\n", SunTimer::phase_name(phase));
+  printf("The phase is %s\n", SunTimer::phaseName(phase));
 #endif
 
 #ifdef ARDUINO
